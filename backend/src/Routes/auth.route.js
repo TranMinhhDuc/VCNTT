@@ -1,4 +1,4 @@
-import { Router } from "express";
+import {application, Router} from "express";
 import User from "../models/user.models.js";
 import mongoose from "mongoose";
 import bcrypt from 'bcrypt';
@@ -150,5 +150,38 @@ authRoute.put('/update-user', async (req, res) => {
     }
 });
 
+authRoute.delete('/delete-user/:id', async (req, res) => {
+    const session = await mongoose.startSession();
+    await session.startTransaction();
+
+    try {
+        const id = req.params.id;
+
+        const existingUser = await User.findById(id).session(session);
+        if (!existingUser) {
+            const error = new Error();
+            throw error;
+        }
+
+        await User.deleteOne({ _id: id }).session(session);
+
+        await session.commitTransaction();
+        session.endSession();
+
+        res.status(200).json({
+            success: true,
+            message: 'User deleted successfully'
+        });
+
+    } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+        res.status(500).json({
+            success: false,
+            message: 'Delete failed',
+            error: error.message
+        });
+    }
+});
 
 export default authRoute;
